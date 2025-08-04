@@ -929,7 +929,17 @@ rbac_deployment() {
   local rbac_rhdh_base_url="https://${RELEASE_NAME_RBAC}-developer-hub-${NAME_SPACE_RBAC}.${K8S_CLUSTER_ROUTER_BASE}"
   apply_yaml_files "${DIR}" "${NAME_SPACE_RBAC}" "${rbac_rhdh_base_url}"
   echo "Deploying image from repository: ${QUAY_REPO}, TAG_NAME: ${TAG_NAME}, in NAME_SPACE: ${RELEASE_NAME_RBAC}"
-  perform_helm_install "${RELEASE_NAME_RBAC}" "${NAME_SPACE_RBAC}" "${HELM_CHART_RBAC_VALUE_FILE_NAME}"
+  
+  # Deploy RBAC RHDH instance with orchestrator enabled
+  helm upgrade -i "${RELEASE_NAME_RBAC}" -n "${NAME_SPACE_RBAC}" \
+    "${HELM_CHART_URL}" --version "${CHART_VERSION}" \
+    -f "${DIR}/value_files/${HELM_CHART_RBAC_VALUE_FILE_NAME}" \
+    --set global.clusterRouterBase="${K8S_CLUSTER_ROUTER_BASE}" \
+    --set orchestrator.enabled=true \
+    $(get_image_helm_set_params)
+
+  # Deploy orchestrator workflows for RBAC namespace
+  deploy_orchestrator_workflows "${NAME_SPACE_RBAC}"
 
   oc patch service postgress-external-db-primary -n "${NAME_SPACE_POSTGRES_DB}" --type=merge -p '{"spec": {"selector": {"app": "psql-test"}}}'
   oc get sfp -n "${NAME_SPACE_RBAC}" -o yaml
